@@ -2,6 +2,10 @@
 - name: Provisioning des VMs Kubernetes sur Proxmox
   hosts: proxmox
   become: false
+
+  vars_files:
+    - "../vaults/secrets.yml"
+
   vars:
     proxmox_node: "870A43E"       # Vérifie si ton nœud s'appelle bien 'pve' dans l'interface
     template_id: 9000         # Ton template
