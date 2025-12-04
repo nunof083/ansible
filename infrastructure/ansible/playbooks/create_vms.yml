@@ -3,7 +3,7 @@
   hosts: proxmox
   become: false
   vars:
-    proxmox_node: "pve"       # Vérifie si ton nœud s'appelle bien 'pve' dans l'interface
+    proxmox_node: "870A43E"       # Vérifie si ton nœud s'appelle bien 'pve' dans l'interface
     template_id: 9000         # Ton template
     ssh_public_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
 
