@@ -63,6 +63,9 @@
         ipconfig:
           ipconfig0: "ip={{ item.ip }}/24,gw=10.10.10.1"
       
+      # Dis au Ansible de faire tourner la tâche sur le localhost car module proxmoxer est sur le localhost
+      delegate_to: localhost
+
       loop: "{{ vms }}"
       register: vm_creation
 
@@ -74,5 +77,9 @@
         node: "{{ proxmox_node }}"
         vmid: "{{ item.vmid }}"
         state: started
+
+      # Dis au Ansible de faire tourner la tâche sur le localhost car module proxmoxer est sur le localhost
+      delegate_to: localhost
+
       loop: "{{ vms }}"
       when: vm_creation.changed
