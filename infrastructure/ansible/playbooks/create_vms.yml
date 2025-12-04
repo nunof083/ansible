@@ -32,7 +32,7 @@
       community.general.proxmox_kvm:
         api_host: "10.10.10.1"
         api_user: "root@pam"
-        api_password: "TON_MOT_DE_PASSE_PROXMOX_ICI" # ⚠️ Mets ton vrai mdp ici
+        api_password: "{{ proxmox_password }}" # ⚠️ Mets ton vrai mdp ici
         node: "{{ proxmox_node }}"
         name: "{{ item.name }}"
         vmid: "{{ item.vmid }}"
@@ -54,7 +54,7 @@
         
         # Cloud-Init (C'est ici qu'on injecte ta clé SSH)
         ciuser: "debian"
-        cipassword: "password" # Mdp de secours pour l'utilisateur debian
+        cipassword: "{{ user_password}}" # Mdp de secours pour l'utilisateur debian
         sshkeys: "{{ ssh_public_key }}"
         ipconfig:
           ipconfig0: "ip={{ item.ip }}/24,gw=10.10.10.1"
@@ -66,7 +66,7 @@
       community.general.proxmox_kvm:
         api_host: "10.10.10.1"
         api_user: "root@pam"
-        api_password: "TON_MOT_DE_PASSE_PROXMOX_ICI" # ⚠️ Le même mdp
+        api_password: "{{ proxmox_password }}" # ⚠️ Le même mdp
         node: "{{ proxmox_node }}"
         vmid: "{{ item.vmid }}"
         state: started
