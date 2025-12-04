@@ -47,6 +47,8 @@
         state: present
         timeout: 300          # On laisse du temps pour la copie
         
+        update: no
+      
         # Hardware
         cores: "{{ item.cores }}"
         memory: "{{ item.memory }}"
