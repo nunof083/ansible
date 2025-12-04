@@ -1,0 +1,119 @@
+---
+- name: Déploiement Intelligent Kubernetes sur Proxmox 9
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - "../vaults/secrets.yml"
+
+  vars:
+    proxmox_node: "870A43E"
+    pve_api_host: "10.10.10.1"
+    pve_user: "root@pam"
+
+    template_id: 9000
+    storage_name: "local"
+    ssh_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
+    k8s_vms:
+      - name: "k8s-master"
+        vmid: 101
+        cores: 2
+        memory: 6144
+        ip: "10.10.10.20"
+
+      - name: "k8s-worker-01"
+        vmid: 102
+        cores: 2
+        memory: 8192
+        ip: "10.10.10.21"
+
+      - name: "k8s-worker-02"
+        vmid: 103
+        cores: 2
+        memory: 8192
+        ip: "10.10.10.22"
+
+  tasks:
+
+    # ---------------------------------------------------------
+    # ÉTAPE 1 : Lister les VM existantes
+    # ---------------------------------------------------------
+    - name: "Récupérer les VMs existantes sur {{ proxmox_node }}"
+      community.proxmox.proxmox_vm_info:
+        api_host: "{{ pve_api_host }}"
+        api_user: "{{ pve_user }}"
+        api_password: "{{ proxmox_password }}"
+        validate_certs: false
+        node: "{{ proxmox_node }}"
+      register: existing_vms_info
+
+    - name: "Créer la liste des IDs existants"
+      set_fact:
+        existing_vmid_list: "{{ existing_vms_info.proxmox_vms | map(attribute='vmid') | list }}"
+
+    - debug:
+        var: existing_vmid_list
+
+
+    # ---------------------------------------------------------
+    # ÉTAPE 2 : Clonage (uniquement si absent)
+    # ---------------------------------------------------------
+    - name: "Cloner la VM depuis le template si elle n'existe pas"
+      community.general.proxmox:
+        api_host: "{{ pve_api_host }}"
+        api_user: "{{ pve_user }}"
+        api_password: "{{ proxmox_password }}"
+        validate_certs: false
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        ostemplate: "{{ template_id }}"
+        hostname: "{{ item.name }}"
+        storage: "{{ storage_name }}"
+        state: present
+        clone_type: full
+      when: item.vmid not in existing_vmid_list
+      loop: "{{ k8s_vms }}"
+      register: clone_results
+
+
+    # ---------------------------------------------------------
+    # ÉTAPE 3 : Configurer hardware + cloud-init
+    # ---------------------------------------------------------
+    - name: "Configurer Cloud-Init + hardware"
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ pve_api_host }}"
+        api_user: "{{ pve_user }}"
+        api_password: "{{ proxmox_password }}"
+        validate_certs: false
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+
+        cores: "{{ item.cores }}"
+        memory: "{{ item.memory }}"
+        scsihw: virtio-scsi-pci
+        net:
+          net0: "model=virtio,bridge=vmbr1"
+
+        ciuser: "debian"
+        cipassword: "{{ user_password }}"
+        sshkeys: "{{ ssh_key }}"
+        ipconfig:
+          ipconfig0: "ip={{ item.ip }}/24,gw=10.10.10.1"
+
+      loop: "{{ k8s_vms }}"
+
+
+    # ---------------------------------------------------------
+    # ÉTAPE 4 : Démarrer les VMs
+    # ---------------------------------------------------------
+    - name: "Démarrer les VMs"
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ pve_api_host }}"
+        api_user: "{{ pve_user }}"
+        api_password: "{{ proxmox_password }}"
+        validate_certs: false
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        state: started
+      loop: "{{ k8s_vms }}"
