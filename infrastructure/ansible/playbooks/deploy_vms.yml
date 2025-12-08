@@ -53,7 +53,7 @@
       shell: |
         ssh -o StrictHostKeyChecking=no root@{{ pve_host_ip }} \
         "qm clone {{ template_id }} {{ item.vmid }} --name {{ item.name }} --full 1 --storage {{ storage_name }} --format qcow2"
-      loop: "{{ k8s_vms }}"
+      loop: "{{ k3s_vms }}"
       when: item.vmid not in existing_vmid_list
       # On ignore les erreurs SSH mineures et on affiche ce qui se passe
       register: clone_output
@@ -89,7 +89,7 @@
         state: present
         update: true # On force la mise à jour de la config
       
-      loop: "{{ k8s_vms }}"
+      loop: "{{ k3s_vms }}"
 
     # 4. DÉMARRAGE
     - name: "Démarrage des VMs"
@@ -101,4 +101,4 @@
         node: "{{ proxmox_node }}"
         vmid: "{{ item.vmid }}"
         state: started
-      loop: "{{ k8s_vms }}"
+      loop: "{{ k3s_vms }}"
