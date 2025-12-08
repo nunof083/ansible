@@ -15,18 +15,18 @@
     ssh_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
     storage_name: "local"
 
-    k8s_vms:
-      - name: "k8s-master"
+    k3s_vms:
+      - name: "k3s-master"
         vmid: 101
         cores: 2
         memory: 6144
         ip: "10.10.10.20"
-      - name: "k8s-worker-01"
+      - name: "k3s-worker-01"
         vmid: 102
         cores: 2
         memory: 8192
         ip: "10.10.10.21"
-      - name: "k8s-worker-02"
+      - name: "k3s-worker-02"
         vmid: 103
         cores: 2
         memory: 8192
