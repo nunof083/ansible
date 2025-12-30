@@ -4,17 +4,18 @@
   gather_facts: false
   
   vars_files:
-    - "../vaults/secrets.yml"
+    - "../../vaults/secrets.yml"
 
   vars:
     proxmox_node: "870A43E"
-    pve_host_ip: "10.10.10.1"  # IP pour le SSH et l'API
+    pve_host_ip: "10.10.10.1"
     pve_user: "root@pam"
     
     template_id: 9000
     ssh_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
     storage_name: "local"
 
+    # 🛠️ CONFIGURATION DES VMS
     k3s_vms:
       - name: "k3s-master"
         vmid: 101
@@ -33,7 +34,7 @@
         ip: "10.10.10.22"
 
   tasks:
-    # 1. On vérifie qui existe déjà (Ça, ça marche bien)
+    # 1. VÉRIFICATION
     - name: "Vérifier les VMs existantes"
       community.proxmox.proxmox_vm_info:
         api_host: "{{ pve_host_ip }}"
@@ -47,20 +48,33 @@
       set_fact:
         existing_vmid_list: "{{ existing_vms_info.proxmox_vms | map(attribute='vmid') | list }}"
 
-    # 2. CRÉATION BRUTE VIA SSH (Contournement du bug Python)
-    # On lance la commande 'qm clone' directement sur le serveur Proxmox
+    # 2. CRÉATION (CLONAGE)
     - name: "Clonage Brut via SSH (si VM absente)"
       shell: |
         ssh -o StrictHostKeyChecking=no root@{{ pve_host_ip }} \
         "qm clone {{ template_id }} {{ item.vmid }} --name {{ item.name }} --full 1 --storage {{ storage_name }} --format qcow2"
       loop: "{{ k3s_vms }}"
       when: item.vmid not in existing_vmid_list
-      # On ignore les erreurs SSH mineures et on affiche ce qui se passe
       register: clone_output
       changed_when: clone_output.rc == 0
 
-    # 3. CONFIGURATION FINE VIA ANSIBLE
-    # Maintenant que la VM existe (créée par SSH), le module ne plantera plus !
+    # 3. AGRANDISSEMENT DISQUE (PROXMOX) [NOUVEAU]
+    # On force le disque scsi0 à 50G. 
+    # Note : Cela ne fonctionne que si la taille actuelle est < 50G.
+    - name: "Extension du disque dur virtuel à 50G"
+      shell: |
+        ssh -o StrictHostKeyChecking=no root@{{ pve_host_ip }} \
+        "qm resize {{ item.vmid }} scsi0 50G"
+      loop: "{{ k3s_vms }}"
+      register: resize_result
+      # On ignore l'erreur si le disque fait déjà 50G ou plus
+      failed_when: 
+        - resize_result.rc != 0 
+        - "'size' not in resize_result.stderr"
+      # On le fait même si la VM existait déjà, pour être sûr
+      ignore_errors: yes
+
+    # 4. CONFIGURATION (CPU/RAM/IP)
     - name: "Configuration des Ressources & Cloud-Init"
       community.proxmox.proxmox_kvm:
         api_host: "{{ pve_host_ip }}"
@@ -68,11 +82,9 @@
         api_password: "{{ proxmox_password }}"
         validate_certs: false
         node: "{{ proxmox_node }}"
-        
         vmid: "{{ item.vmid }}"
-        # On ne met PAS 'clone' ici car c'est déjà fait au dessus
         
-        # Configuration Hardware
+        # Hardware
         cores: "{{ item.cores }}"
         memory: "{{ item.memory }}"
         scsihw: virtio-scsi-pci
@@ -87,11 +99,10 @@
           ipconfig0: "ip={{ item.ip }}/24,gw=10.10.10.1"
           
         state: present
-        update: true # On force la mise à jour de la config
-      
+        update: true
       loop: "{{ k3s_vms }}"
 
-    # 4. DÉMARRAGE
+    # 5. DÉMARRAGE
     - name: "Démarrage des VMs"
       community.proxmox.proxmox_kvm:
         api_host: "{{ pve_host_ip }}"
@@ -101,4 +112,14 @@
         node: "{{ proxmox_node }}"
         vmid: "{{ item.vmid }}"
         state: started
+      loop: "{{ k3s_vms }}"
+
+    # 6. ATTENTE SSH (Important pour le Play suivant)
+    - name: "Attendre que le SSH soit disponible sur les VMs"
+      wait_for:
+        port: 22
+        host: "{{ item.ip }}"
+        search_regex: OpenSSH
+        delay: 10
+        timeout: 300
       loop: "{{ k3s_vms }}"

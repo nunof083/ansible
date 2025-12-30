@@ -1,0 +1,31 @@
+---
+- name: Extension du Système de Fichiers (OS)
+  # On cible les IPs définies plus haut. 
+  # Astuce : On utilise add_host ou on cible dynamiquement si l'inventaire n'est pas à jour
+  hosts: k3s_cluster
+  gather_facts: false
+  become: true
+  
+  tasks:
+    - name: "Installation de l'outil growpart"
+      apt:
+        name: cloud-guest-utils
+        state: present
+        update_cache: yes
+      # On ignore les erreurs de lock apt temporaires au boot
+      register: apt_result
+      retries: 3
+      delay: 10
+      until: apt_result is success
+
+    - name: "Agrandir la partition système (growpart)"
+      shell: growpart /dev/sda 1
+      register: growpart_result
+      # Succès si ça marche (rc=0) ou si c'est déjà fait ("NOCHANGE")
+      failed_when: 
+        - growpart_result.rc != 0 
+        - "'NOCHANGE' not in growpart_result.stdout"
+      changed_when: "'CHANGED' in growpart_result.stdout"
+
+    - name: "Agrandir le système de fichiers (resize2fs)"
+      shell: resize2fs /dev/sda1
