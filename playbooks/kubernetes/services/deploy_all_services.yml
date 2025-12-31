@@ -1,0 +1,10 @@
+---
+- name: Deploiement des Services de Monitoring
+  import_playbook: monitoring_services/monitoring_deployment.yml
+
+- name: Deploiement des Services de CI/CD 
+  import_playbook: ci-cd_services/jenkins_deployment.yml
+  import_playbook: ci-cd_services/argocd_deployment.yml
+
+- name: Deploiement des Services d'application
+  import_playbook: app_services/db_deployment.yml

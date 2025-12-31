@@ -8,7 +8,7 @@
   tasks:
 
     # ==========================================
-    # 1. GESTION DES DÉPÔTS HELM
+    # GESTION DES DÉPÔTS HELM
     # ==========================================
     - name: Ajouter le repo Helm ArgoCD
       kubernetes.core.helm_repository:
