@@ -1,0 +1,25 @@
+---
+- name: Déploiement des Services Kubernetes (Helm & Manifests)
+  hosts: localhost  # On lance les commandes depuis le contrôleur (qui a le fichier kubeconfig)
+  connection: local
+  vars:
+    kubeconfig_path: "~/.kube/config" # Assure-toi que ce fichier existe sur ton contrôleur
+
+  tasks:
+
+    # ==========================================
+    # 1. GESTION DES DÉPÔTS HELM
+    # ==========================================
+    - name: Ajouter le repo Helm ArgoCD
+      kubernetes.core.helm_repository:
+        name: argo
+        repo_url: https://argoproj.github.io/argo-helm
+        
+    # ArgoCD
+    - name: Installer ArgoCD
+      kubernetes.core.helm:
+        name: argocd
+        chart_ref: argo/argo-cd
+        release_namespace: argocd
+        create_namespace: true
+        kubeconfig: "{{ kubeconfig_path }}"

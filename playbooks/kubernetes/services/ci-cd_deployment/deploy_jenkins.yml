@@ -1,0 +1,28 @@
+---
+- name: Déploiement des Services Kubernetes (Helm & Manifests)
+  hosts: localhost  # On lance les commandes depuis le contrôleur (qui a le fichier kubeconfig)
+  connection: local
+  vars:
+    kubeconfig_path: "~/.kube/config" # Assure-toi que ce fichier existe sur ton contrôleur
+
+  tasks:
+    # ==========================================
+    # DÉPLOIEMENT DE FICHIERS YAML JENKINS
+    # ==========================================
+    - name: Créer le namespace jenkins
+      kubernetes.core.k8s:
+        name: jenkins
+        api_version: v1
+        kind: Namespace
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Déployer Jenkins (Tous les fichiers du dossier)
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', item) | from_yaml_all | list }}"
+        namespace: jenkins
+        kubeconfig: "{{ kubeconfig_path }}"
+      with_fileglob:
+        - "/home/ksl34k/k3s_scripts/jenkins/*.yaml" # Prend tous les YAML du dossier
+        - "/home/ksl34k/k3s_scripts/jenkins/*.yml"

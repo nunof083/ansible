@@ -1,0 +1,29 @@
+---
+- name: Déploiement des Services Kubernetes (Helm & Manifests)
+  hosts: localhost  # On lance les commandes depuis le contrôleur (qui a le fichier kubeconfig)
+  connection: local
+  vars:
+    kubeconfig_path: "~/.kube/config" # Assure-toi que ce fichier existe sur ton contrôleur
+
+  tasks:
+    # ==========================================
+    # DÉPLOIEMENT DE FICHIERS YAML JENKINS
+    # ==========================================
+    - name: Créer le namespace menu-app
+      kubernetes.core.k8s:
+        name: menu-app
+        api_version: v1
+        kind: Namespace
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Déployer MySQL (PVC, Deployment, Service)
+      kubernetes.core.k8s:
+        state: present
+        src: "/root/k3s_scripts/mysql/{{ item }}" # Chemin vers tes fichiers
+        namespace: menu-app
+        kubeconfig: "{{ kubeconfig_path }}"
+      loop:
+        - mysql-pvc.yml
+        - mysql.yml
+        - mysql-secret.yml

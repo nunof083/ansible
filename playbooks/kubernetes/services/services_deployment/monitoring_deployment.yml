@@ -1,0 +1,51 @@
+---
+- name: Déploiement des Services Monitoring (Avec Helm)
+  hosts: localhost  # On lance les commandes depuis le contrôleur (qui a le fichier kubeconfig)
+  connection: local
+  vars:
+    kubeconfig_path: "~/.kube/config" # Assure-toi que ce fichier existe sur ton contrôleur
+
+  tasks:
+
+    # ==========================================
+    # 1. GESTION DES DÉPÔTS HELM
+    # ==========================================
+    - name: Ajouter le repo Helm Prometheus/Grafana
+      kubernetes.core.helm_repository:
+        name: prometheus-community
+        repo_url: https://prometheus-community.github.io/helm-charts
+
+    - name: Ajouter le repo Helm Grafana (pour Loki)
+      kubernetes.core.helm_repository:
+        name: grafana
+        repo_url: https://grafana.github.io/helm-charts
+
+    - name: Ajouter le repo Helm ArgoCD
+      kubernetes.core.helm_repository:
+        name: argo
+        repo_url: https://argoproj.github.io/argo-helm
+
+    # ==========================================
+    # 2. INSTALLATION DES CHARTS HELM
+    # ==========================================
+    
+    # Monitoring Stack (Prometheus + Grafana)
+    - name: Installer Kube-Prometheus-Stack
+      kubernetes.core.helm:
+        name: monitoring
+        chart_ref: prometheus-community/kube-prometheus-stack
+        release_namespace: monitoring
+        create_namespace: true
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    # Logs (Loki)
+    - name: Installer Loki Stack
+      kubernetes.core.helm:
+        name: loki
+        chart_ref: grafana/loki-stack
+        release_namespace: monitoring
+        create_namespace: true
+        kubeconfig: "{{ kubeconfig_path }}"
+        values:
+          grafana:
+            enabled: false # On utilise le Grafana de la stack Prometheus
