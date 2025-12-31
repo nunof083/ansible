@@ -1,0 +1,42 @@
+---
+- name: Préparation de la machine de contrôle (Ansible Controller)
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  become: yes # On passe en root pour installer les paquets
+
+  tasks:
+
+    # 1. On installe PIP et les dépendances Python via APT 
+    # Debian fournit déjà python3-kubernetes, c'est plus stable de l'utiliser.
+    - name: Installer les paquets Python systèmes via APT
+      apt:
+        name:
+          - python3-pip
+          - python3-kubernetes  # Remplace 'pip install kubernetes'
+          - python3-yaml        # Remplace 'pip install pyyaml'
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    # 2. On Installe Helm
+    - name: Installer le binaire Helm officiel
+      shell: |
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm  # Ne le fait pas si Helm existe déjà
+
+    # 3. On installe la collection Ansible pour Kubernetes
+    # Note : On utilise 'command' car le module ansible_galaxy peut parfois poser souci en local
+    - name: Installer la collection ansible kubernetes.core
+      command: ansible-galaxy collection install kubernetes.core
+      register: galaxy_output
+      changed_when: "'Installing' in galaxy_output.stdout"
+      become: no 
+
+    # 4. On installe la collection Community General
+    - name: Installer la collection community.general
+      command: ansible-galaxy collection install community.general
+      register: galaxy_gen_output
+      changed_when: "'Installing' in galaxy_gen_output.stdout"
+      become: no
