@@ -1,0 +1,92 @@
+---
+- name: Sécurisation du Serveur - UFW
+  hosts: pve-host
+  become: yes
+  vars:
+    # ⚠️ Change ce port si tu veux (ex: 2222), mais n'oublie pas de l'ouvrir dans ton VPN/Firewall provider avant !
+    ssh_port: 294
+    # Mets ici ton utilisateur (ex: 'root' ou ton user sudo)
+    admin_user: "root"
+
+  tasks:
+    - name: Mettre à jour le cache apt et les paquets
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: Installer les paquets de sécurité indispensables
+      apt:
+        name:
+          - ufw
+          - unattended-upgrades
+          - apt-listchanges
+        state: present
+
+    # Attention : L'ordre est important. On autorise d'abord SSH !
+    - name: UFW - Refuser tout par défaut (Entrant)
+      ufw:
+        default: deny
+        direction: incoming
+
+    - name: UFW - Autoriser tout par défaut (Sortant)
+      ufw:
+        default: allow
+        direction: outgoing
+
+    - name: UFW - Autoriser VPN
+      ufw:
+        rule: allow
+        port: '1194'
+        proto: udp
+
+    - name: UFW - Autoriser Proxmox Web UI (8006)
+      ufw:
+        rule: allow
+        port: '8006'
+        proto: tcp
+
+    - name: UFW - Autoriser Console VNC (5900:5999) pour les VMs
+      ufw:
+        rule: allow
+        port: '5900:5999'
+        proto: tcp
+
+    - name: UFW - Autoriser Kubernetes API (6443)
+      ufw:
+        rule: allow
+        port: '6443'
+        proto: tcp
+
+    - name: UFW - Autoriser le trafic HTTP/HTTPS (80, 443) pour Traefik/Ingress
+      ufw:
+        rule: allow
+        port: '{{ item }}'
+        proto: tcp
+      loop:
+        - '80'
+        - '443'
+    
+    # K3s/Kubernetes a besoin que les pods se parlent entre eux (VXLAN)
+    - name: UFW - Autoriser le réseau interne des Pods (VXLAN)
+      ufw:
+        rule: allow
+        port: '8472'
+        proto: udp
+
+    - name: UFW - Autoriser le routage (Forwarding) pour les VMs
+      lineinfile:
+        path: /etc/default/ufw
+        regexp: '^DEFAULT_FORWARD_POLICY='
+        line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+        state: present
+
+    - name: UFW - Autoriser tout le trafic venant du réseau interne (10.10.10.x)
+      ufw:
+        rule: allow
+        src: '10.10.10.0/24'
+        proto: any
+
+    - name: UFW - Activer le pare-feu
+      ufw:
+        state: enabled

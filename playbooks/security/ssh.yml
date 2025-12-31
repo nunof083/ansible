@@ -1,0 +1,62 @@
+---
+- name: Sécurisation du Serveur - SSH
+  hosts: pve-host
+  become: yes
+  vars:
+    # ⚠️ Change ce port si tu veux (ex: 2222), mais n'oublie pas de l'ouvrir dans ton VPN/Firewall provider avant !
+    ssh_port: 294
+    # Mets ici ton utilisateur (ex: 'root' ou ton user sudo)
+    admin_user: "root"
+
+  tasks:
+    - name: Mettre à jour le cache apt et les paquets
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: S'assurer que le dossier .ssh existe
+      file:
+        path: "/home/{{ admin_user }}/.ssh"
+        state: directory
+        mode: '0700'
+        owner: "{{ admin_user }}"
+      when: admin_user != "root"
+
+    - name: Changer le port SSH dans sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port'
+        line: "Port {{ ssh_port }}"
+        state: present
+      notify: Restart SSH
+
+    - name: Désactiver l'authentification par mot de passe SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+      notify: Restart SSH
+
+    - name: Désactiver le login Root (OPTIONNEL - Mets 'no' seulement si tu as un autre user sudo)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin yes' # Change en 'no' si tu as créé un autre user !
+        state: present
+      notify: Restart SSH
+
+    - name: Désactiver PAM (Souvent recommandé pour éviter les bypass)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?UsePAM'
+        line: 'UsePAM no'
+        state: present
+      notify: Restart SSH
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: ssh
+        state: restarted
