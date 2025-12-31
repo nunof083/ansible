@@ -1,0 +1,27 @@
+---
+- name: Sécurisation du Serveur (Hardening & Defense)
+  hosts: pve-host
+  become: yes
+  vars:
+    ssh_port: 294
+    admin_user: "root"
+
+  tasks:
+
+    # Mises à jour
+    - name: Mettre à jour le cache apt et les paquets
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    # Import des tâches SSH
+    - name: Configuration de SSH
+      include_tasks: tasks/ssh.yml
+
+    # Import des tâches Fail2ban
+    - name: Installation & Configuration de Fail2ban
+      include_tasks: tasks/fail2ban.yml
+
+    # Import des tâches UFW
+    - name: Installation & Configuration de UFW
+      include_tasks: tasks/ufw.yml
