@@ -1,12 +1,13 @@
 ---
 - name: Sécurisation du Serveur - SSH
-  hosts: pve-host
+  hosts: pve-hosts
   become: yes
   vars:
     # ⚠️ Change ce port si tu veux (ex: 2222), mais n'oublie pas de l'ouvrir dans ton VPN/Firewall provider avant !
     ssh_port: 294
     # Mets ici ton utilisateur (ex: 'root' ou ton user sudo)
-    admin_user: "root"
+    admin_user: "ksl34k"
+    local_ssh_key_path: "~/.ssh/id_rsa.pub"
 
   tasks:
     - name: Mettre à jour le cache apt et les paquets
@@ -14,6 +15,22 @@
         update_cache: yes
         upgrade: dist
       when: ansible_os_family == "Debian"
+
+      # --- CRÉATION UTILISATEUR ---
+    - name: "Créer l'utilisateur {{ admin_user }}"
+      user:
+        name: "{{ admin_user }}"
+        state: present
+        shell: /bin/bash
+        groups: sudo, adm  # Ajoute l'user au groupe sudo (très important)
+        append: yes
+        create_home: yes
+
+    - name: "Ajouter la clé SSH publique pour {{ admin_user }}"
+      authorized_key:
+        user: "{{ admin_user }}"
+        state: present
+        key: "{{ lookup('file', local_ssh_key_path) }}"
 
     - name: S'assurer que le dossier .ssh existe
       file:
