@@ -1,6 +1,6 @@
 ---
 - name: Sécurisation du Serveur - SSH
-  hosts: pve-hosts
+  hosts: pve-host
   become: yes
   vars:
     # ⚠️ Change ce port si tu veux (ex: 2222), mais n'oublie pas de l'ouvrir dans ton VPN/Firewall provider avant !
@@ -8,6 +8,9 @@
     # Mets ici ton utilisateur (ex: 'root' ou ton user sudo)
     admin_user: "ksl34k"
     local_ssh_key_path: "~/.ssh/id_rsa.pub"
+
+  vars_files:
+    - "../../../vaults/userpass.yml"
 
   tasks:
     - name: Mettre à jour le cache apt et les paquets
@@ -25,6 +28,7 @@
         groups: sudo, adm  # Ajoute l'user au groupe sudo (très important)
         append: yes
         create_home: yes
+        password: "{{ user_password }}"
 
     - name: "Ajouter la clé SSH publique pour {{ admin_user }}"
       authorized_key:
